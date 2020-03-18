@@ -8,7 +8,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Introduction
-The data set contains information from a longitudinal MRI study done on 150 patients with and without dementia. Each patient was scanned during two or more visits, where visits were at least one year apart. The data was made available by the Open Access Series of Imaging Studies (OASIS) project and accessed on Kaggle. The data contains patients' demographic and anatomic information. 
+The data set contains information from a longitudinal MRI study done on 150 patients with and without dementia. 
+Each patient was scanned during two or more visits, where visits were at least one year apart. 
+The data was made available by the Open Access Series of Imaging Studies (OASIS) project and accessed on Kaggle. 
+The data contains patients' demographic and anatomic information. 
   
 Specifically, the data set has 373 observations with the following features:
     
@@ -191,7 +194,10 @@ pchisq(267.8373-266.1869, 9-8, lower = F)
 ```
 
 # Conclusion & Discussion
-There are both pros and cons to using the GEE approach and the random effects modeling approach for this data set. First, the challenging part of the GEE approach is selecting a correlation structure for the correlations within the clusters, as we cannot be too certain which structure is most appropriate for this study. However, an advantage is that the robust parameter estimtes and standard errors of the GEE keeps choosing an incorrect correlation structure from being detrimental. Further, it is said that the GEE approach is most appropriate for describing the effects of features that are constant within clusters, whereas the random effects approach is most appropriate for describing the effects of features that are repeatedly measured on the same subject. This data set contains both types of features. For example, covariates such as years of education and gender are constant within each subject, whereas the anatonomic information obtained from MRIs are repeatedly measured at each visit per subject. However, considering that this is a longitudinal study and that a patient's development of dementia is monitored through tests done on multiple visits, the latter type of features is more distinctly important for the nature of this study. Thus, a random effects approach may be more appropriate.
+There are both pros and cons to using the GEE approach and the random effects modeling approach for this data set. 
+First, the challenging part of the GEE approach is selecting a correlation structure for the correlations within the clusters, as we cannot be too certain which structure is most appropriate for this study. However, an advantage is that the robust parameter estimtes and standard errors of the GEE keeps choosing an incorrect correlation structure from being detrimental. 
+Further, it is said that the GEE approach is most appropriate for describing the effects of features that are constant within clusters, whereas the random effects approach is most appropriate for describing the effects of features that are repeatedly measured on the same subject. This data set contains both types of features. For example, covariates such as years of education and gender are constant within each subject, whereas the anatonomic information obtained from MRIs are repeatedly measured at each visit per subject. 
+However, considering that this is a longitudinal study and that a patient's development of dementia is monitored through tests done on multiple visits, the latter type of features is more distinctly important for the nature of this study. Thus, a random effects approach may be more appropriate.
 
 # Appendix
 ```{r, eval = F}
