@@ -1,0 +1,275 @@
+---
+title: "ACMS 40950 Project 2"
+author: "Honoka Suzuki"
+date: "Due 12/11/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+The data set contains information from a longitudinal MRI study done on 150 patients with and without dementia. Each patient was scanned during two or more visits, where visits were at least one year apart. The data was made available by the Open Access Series of Imaging Studies (OASIS) project and accessed on Kaggle. The data contains patients' demographic and anatomic information. 
+  
+Specifically, the data set has 373 observations with the following features:
+    
+* Subject ID
+* Visit Number
+* Gender
+* Age
+* Years of education
+* Whether or not the patient's group status changed at any point during the time of the study (group statuses are demented or not demented)
+* Clinical Dementia Rating (CDR)
+* Estimated total intracranial volume in $mm^3$ (eTIV) 
+* Normalized whole brain volume (nWBV)
+  
+The CDR has the following possible scores: 0 (no dementia), 0.5 (very mild dementia), 1 (mild dementia), 2 (moderate dementia), and 3 (severe dementia). Thus, I will convert this feature into a binary outcome variable so that a CDR score of 0 is no dementia (Class = 0) and any score above 0 is dementia (Class = 1).
+
+As this data set has correlated rows (groups are subjects), the goal of this project will be to perform a GEE analysis and random effects modeling analysis to predict whether or not a patient as dementia.
+
+*Note*: In order to make the variables on similar scales so that model coefficients are of similar magnitude, eTIV was divided by 1000 (units are now in $cm^3$), nWBV was multipled by 10, and age was divided by 10.
+
+# Methods and Analysis
+### GEE Analysis
+First, a generalized estimating equations approach will be implemented. In order to select variables to include in the model and the working correlation structure, I will compute a $QIC_u$/$QIC$ for each model and select the one that minimizes the $QIC_u$/$QIC$. $QIC$ will be used to select the correlation structure, and $QIC_u$ will be used to select variables to be included in the model. 
+```{r, echo = F, warning=F, message=F}
+dementia = read.csv("oasis_longitudinal.csv", header = T)
+dementia$eTIV = dementia$eTIV/1000
+dementia$Class = ifelse(dementia$CDR > 0, 1, 0)
+dementia$Visit = as.factor(dementia$Visit)
+dementia$groupChange = ifelse(dementia$Group == "Converted", 1, 0)
+dementia$nWBV = dementia$nWBV*10
+dementia$Age = dementia$Age/10
+```
+
+```{r, echo = F}
+#function for calculating QIC
+QIC = function(mod, mod.indep, outcome, u = F){
+  pi.hats = mod$fitted.values
+  QL = sum(outcome*log(pi.hats)+(1-outcome)*log(1-pi.hats))
+  Vr = mod$robust.variance
+  Omega = solve(mod.indep$naive.variance)
+  qic = -2*QL + 2*sum(diag(Omega%*%Vr))
+  if (u){
+    qic = -2*QL +2*(length(mod$coefficients))
+  }
+  return(qic)
+}
+```
+
+*(Model 1): all predictors and exchangeable correlation structure*   
+The first model contains all predictors and uses an exchangeable correlation structure. This correlation structure assumes that all correlations for between observations within a subject are the same.   
+P-values computed using the Wald test show that all variables except for eTIV and groupChange are significant. The $QIC$ for this model is 431.2214 and the $QIC_u$ is 420.4153.
+```{r,warning=F, message=F,results='hide'}
+library(gee)
+mod1 = gee(Class~M.F+Age+EDUC+eTIV+nWBV+groupChange,
+          id=Subject.ID,
+          family=binomial,
+          corstr="exchangeable",
+          data=dementia)
+```
+```{r}
+#compute p-values
+2*pnorm(abs(coef(summary(mod1))[,'Robust z']),lower.tail= FALSE,0,1)<0.05
+```
+```{r,warning=F, message=F,results='hide'}
+mod.indep1 = gee(Class~M.F+Age+EDUC+eTIV+nWBV+groupChange,
+          id=Subject.ID,
+          family=binomial,
+          corstr="independence",
+          data=dementia)
+```
+```{r}
+QIC(mod1, mod.indep1, dementia$Class)
+QIC(mod1, mod.indep1, dementia$Class, u = T)
+```
+*(Model 2): all predictors except eTIV and exchangeable correlation structure*  
+Variable selection: The second model removes eTIV from the predictors to test whether or not eTIV should stay in the model. The $QIC_u$ for this model is 426.3369, which is higher than the $QIC_u$ from model 1. Thus, eTIV will remain in the model. 
+```{r,warning=F, message=F, results='hide'}
+mod2 = gee(Class~M.F+Age+EDUC+nWBV+groupChange,
+          id=Subject.ID,
+          family=binomial,
+          corstr="exchangeable",
+          data=dementia)
+mod.indep2 = gee(Class~M.F+Age+EDUC+nWBV+groupChange,
+          id=Subject.ID,
+          family=binomial,
+          corstr="independence",
+          data=dementia)
+```
+```{r}
+QIC(mod2, mod.indep2, dementia$Class, u = T)
+```
+*(Model 3): all predictors except groupChange and exchangeable correlation structure*  
+Variable selection: The third model removes groupChange from the predictors to test whether or not it should stay in the model. The $QIC_u$ for this model is 420.9161, which is slightly higher than the $QIC_u$ from model 1. Thus, groupChange will remain in the model. 
+```{r,warning=F, message=F,results='hide'}
+mod3 = gee(Class~M.F+Age+EDUC+eTIV+nWBV,
+          id=Subject.ID,
+          family=binomial,
+          corstr="exchangeable",
+          data=dementia)
+mod.indep3 = gee(Class~M.F+Age+EDUC+eTIV+nWBV,
+          id=Subject.ID,
+          family=binomial,
+          corstr="independence",
+          data=dementia)
+```
+```{r}
+QIC(mod3, mod.indep3, dementia$Class, u = T)
+```
+
+*(Model 4): all predictors and autoregressive (AR1) correlation structure*   
+Now that I am done with variable selection, I change the correlation structure to investigate if there is another structure that fits better than the exchangeable. Here, I try the autoregressive correlation structure, which assumes that the correlation between observations within a subject decrease over time, or over the visits. The QIC for the autoregressive model is 430.8454, which is slightly lower than what was obtained with the exchangeable.
+```{r,warning=F, message=F,results='hide'}
+mod4 = gee(Class~M.F+Age+EDUC+eTIV+nWBV+groupChange,
+          id=Subject.ID,
+          family=binomial,
+          corstr="AR-M", Mv=1,
+          data=dementia)
+mod.indep4 = gee(Class~M.F+Age+EDUC+eTIV+nWBV+groupChange,
+          id=Subject.ID,
+          family=binomial,
+          corstr="independence",
+          data=dementia)
+```
+```{r}
+QIC(mod4, mod.indep4, dementia$Class)
+```
+The best model selected using the $QIC$ and $QIC_u$ contains all predictors with the autoregressive(1) correlation structure.
+
+## Random Effects Model
+First, I fit a random intercept model with all predictors, so that each subject gets its own intercept to account for subject-specific effects.  
+```{r,warning=F, message=F}
+library(lme4)
+mod.int = glmer(Class~M.F+Age+EDUC+eTIV+nWBV+groupChange+(1|Subject.ID), 
+                data = dementia, family = binomial)
+```
+```{r, warning=F, message=F,echo = F}
+library(knitr)
+kable(summary(mod.int)$coefficients, caption = 'Fixed Effects')
+```
+```{r}
+#Compute the ICC
+VarCorr(mod.int)
+11.785^2/(11.785^2+pi^2/3)
+```
+ICC = 0.977. As the ICC is very high meaning that the observations within groups (subjects) are highly correlated, this suggests that a random effect is necessary.   
+\
+
+Next, I fit a random trend and intercept model. In this model, groupChange is treated as a random effect rather than a fixed effect. 
+```{r,warning=F, message=F}
+mod.trend.int = glmer(Class~M.F+Age+EDUC+eTIV+nWBV+(1+groupChange|Subject.ID), 
+                      data = dementia, family = binomial)
+```
+```{r, warning=F, message=F,echo = F}
+kable(summary(mod.trend.int)$coefficients, caption = 'Fixed Effects')
+```
+```{r}
+VarCorr(mod.trend.int)
+#Compute the ICC
+vc = as.data.frame(VarCorr(mod.trend.int))
+varests = vc$vcov
+(ICC = varests[1]/sum(varests))
+```
+
+In order to determine whether the random intercept only or the random trend and intercept model is appropriate, I compare the deviances of the two random effects models created above.   
+($H_0:$ random intercept model is adequate)  
+The p-value is 0.1989045, so I fail to reject the null hypothesis and conclude that the intercept only model is adequate. Thus, groupChange will be treated as a fixed effect, meaning we are only interested in the specific levels of groupChange used in this study.
+```{r, include = F}
+getME(mod.int, "devcomp")$cmp['dev']
+getME(mod.trend.int, "devcomp")$cmp['dev']
+attr(logLik(mod.int), "df") 
+attr(logLik(mod.trend.int), "df") 
+```
+```{r}
+pchisq(267.8373-266.1869, 9-8, lower = F)
+```
+
+The method above of using deviances to test $H_0$ can often produce incorrect results by inflating p-values. Thus, I now use parametric bootstrapping to double check the results obtained above.
+```{r, warning = F, message = F, echo = F}
+gx = predict(mod.int, dementia)
+pr = exp(gx)/(1+exp(gx))
+Deviance_stat <- as.numeric(2*(logLik(mod.trend.int)-logLik(mod.int)))
+  
+#Set seed 
+set.seed(3)
+
+DevStat_sim <- numeric(100)
+for (i in 1:100){
+  #simulate new y vector using original x's, beta hats from null model
+  y_sim <- rbinom(nrow(dementia),1,pr)
+  null_sim <- glmer(y_sim~dementia$M.F+dementia$Age+
+                      dementia$EDUC+dementia$eTIV+dementia$nWBV+dementia$groupChange+
+                      (1|dementia$Subject.ID), 
+                    family = binomial)
+  alt_sim <- glmer(y_sim~dementia$M.F+dementia$Age+
+                      dementia$EDUC+dementia$eTIV+dementia$nWBV+
+                      (1+dementia$groupChange|dementia$Subject.ID), 
+                    family = binomial)
+  DevStat_sim[i] <- as.numeric(2*(logLik(alt_sim)-logLik(null_sim)))
+}
+```
+```{r}
+#estimated p-value
+mean(DevStat_sim > Deviance_stat)
+```
+The estimated p-value obtained using parametric bootstrapping confirms the conclusion made above to fail to reject the null hypothesis and that the random intercept only model is adequate.
+
+# Conclusion & Discussion
+There are both pros and cons to using the GEE approach and the random effects modeling approach for this data set. First, the challenging part of the GEE approach is selecting a correlation structure for the correlations within the clusters, as we cannot be too certain which structure is most appropriate for this study. However, an advantage is that the robust parameter estimtes and standard errors of the GEE keeps choosing an incorrect correlation structure from being detrimental. Further, it is said that the GEE approach is most appropriate for describing the effects of features that are constant within clusters, whereas the random effects approach is most appropriate for describing the effects of features that are repeatedly measured on the same subject. This data set contains both types of features. For example, covariates such as years of education and gender are constant within each subject, whereas the anatonomic information obtained from MRIs are repeatedly measured at each visit per subject. However, considering that this is a longitudinal study and that a patient's development of dementia is monitored through tests done on multiple visits, the latter type of features is more distinctly important for the nature of this study. Thus, a random effects approach may be more appropriate.
+
+# Appendix
+```{r, eval = F}
+#data pre-processing
+dementia = read.csv("oasis_longitudinal.csv", header = T)
+dementia$eTIV = dementia$eTIV/1000
+dementia$Class = ifelse(dementia$CDR > 0, 1, 0)
+dementia$Visit = as.factor(dementia$Visit)
+dementia$groupChange = ifelse(dementia$Group == "Converted", 1, 0)
+dementia$nWBV = dementia$nWBV*10
+dementia$Age = dementia$Age/10
+
+#function for calculating QIC
+QIC = function(mod, mod.indep, outcome, u = F){
+  pi.hats = mod$fitted.values
+  QL = sum(outcome*log(pi.hats)+(1-outcome)*log(1-pi.hats))
+  Vr = mod$robust.variance
+  Omega = solve(mod.indep$naive.variance)
+  qic = -2*QL + 2*sum(diag(Omega%*%Vr))
+  if (u){
+    qic = -2*QL +2*(length(mod$coefficients))
+  }
+  return(qic)
+}
+
+#deviance test
+getME(mod.int, "devcomp")$cmp['dev']
+getME(mod.trend.int, "devcomp")$cmp['dev']
+attr(logLik(mod.int), "df") 
+attr(logLik(mod.trend.int), "df") 
+
+#parametric bootstrap
+gx = predict(mod.int, dementia)
+pr = exp(gx)/(1+exp(gx))
+Deviance_stat <- as.numeric(2*(logLik(mod.trend.int)-logLik(mod.int)))
+  
+#Set seed 
+set.seed(3)
+
+DevStat_sim <- numeric(100)
+for (i in 1:100){
+  #simulate new y vector using original x's, beta hats from null model
+  y_sim <- rbinom(nrow(dementia),1,pr)
+  null_sim <- glmer(y_sim~dementia$M.F+dementia$Age+
+                      dementia$EDUC+dementia$eTIV+dementia$nWBV+dementia$groupChange+
+                      (1|dementia$Subject.ID), 
+                    family = binomial)
+  alt_sim <- glmer(y_sim~dementia$M.F+dementia$Age+
+                      dementia$EDUC+dementia$eTIV+dementia$nWBV+
+                      (1+dementia$groupChange|dementia$Subject.ID), 
+                    family = binomial)
+  DevStat_sim[i] <- as.numeric(2*(logLik(alt_sim)-logLik(null_sim)))
+}
+```
+
