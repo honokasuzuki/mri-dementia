@@ -1,11 +1,9 @@
 ---
-title: "ACMS 40950 Project 2"
-author: "Honoka Suzuki"
-date: "Due 12/11/2019"
+title: "Analyzing Correlated Data - Logistic Regression"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -33,7 +31,8 @@ As this data set has correlated rows (groups are subjects), the goal of this pro
 # Methods and Analysis
 ### GEE Analysis
 First, a generalized estimating equations approach will be implemented. In order to select variables to include in the model and the working correlation structure, I will compute a $QIC_u$/$QIC$ for each model and select the one that minimizes the $QIC_u$/$QIC$. $QIC$ will be used to select the correlation structure, and $QIC_u$ will be used to select variables to be included in the model. 
-```{r, echo = F, warning=F, message=F}
+
+```{r, echo = F, warning = F, message = F}
 dementia = read.csv("oasis_longitudinal.csv", header = T)
 dementia$eTIV = dementia$eTIV/1000
 dementia$Class = ifelse(dementia$CDR > 0, 1, 0)
@@ -44,7 +43,7 @@ dementia$Age = dementia$Age/10
 ```
 
 ```{r, echo = F}
-#function for calculating QIC
+# function for calculating QIC
 QIC = function(mod, mod.indep, outcome, u = F){
   pi.hats = mod$fitted.values
   QL = sum(outcome*log(pi.hats)+(1-outcome)*log(1-pi.hats))
