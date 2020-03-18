@@ -20,7 +20,7 @@ The data set contains information from a longitudinal MRI study done on 150 pati
 
 The CDR has the following possible scores: 0 (no dementia), 0.5 (very mild dementia), 1 (mild dementia), 2 (moderate dementia), and 3 (severe dementia). Thus, I will convert this feature into a binary outcome variable so that a CDR score of 0 is no dementia (Class = 0) and any score above 0 is dementia (Class = 1). 
 
-As this data set has correlated observations (groups are subjects), **the goal of this project will be to perform a GEE analysis and random eﬀects modeling analysis to predict whether or not a patient as dementia. Specifically, the analysis will focus on conducting variable and correlation structure selection for GEE, and on choosing fixed/random effects for random effects analysis.** 
+As this data set has correlated observations (groups are subjects), **the goal of this project will be to perform a GEE analysis and random eﬀects modeling analysis to predict whether or not a patient as dementia. Specifically, the analysis will focus on conducting variable and correlation structure selection for GEE, and on choosing fixed/random effects for random effects analysis. Pros and cons for selecting one method over the other for this particular data set are discussed.** 
 
 
 Note: In order to make the variables on similar scales so that model coeﬃcients are of similar magnitude, eTIV was divided by 1000 (units are now in cm3), nWBV was multipled by 10, and age was divided by 10.
