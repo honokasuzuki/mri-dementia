@@ -25,7 +25,8 @@ Specifically, the data set has 373 observations with the following features:
 * Estimated total intracranial volume in $mm^3$ (eTIV) 
 * Normalized whole brain volume (nWBV)
   
-The CDR has the following possible scores: 0 (no dementia), 0.5 (very mild dementia), 1 (mild dementia), 2 (moderate dementia), and 3 (severe dementia). Thus, I will convert this feature into a binary outcome variable so that a CDR score of 0 is no dementia (Class = 0) and any score above 0 is dementia (Class = 1).
+The CDR has the following possible scores: 0 (no dementia), 0.5 (very mild dementia), 1 (mild dementia), 2 (moderate dementia), and 3 (severe dementia). 
+Thus, I will convert this feature into a binary outcome variable so that a CDR score of 0 is no dementia (Class = 0) and any score above 0 is dementia (Class = 1).
 
 As this data set has correlated rows (groups are subjects), the goal of this project will be to perform a GEE analysis and random effects modeling analysis to predict whether or not a patient as dementia.
 
@@ -33,7 +34,9 @@ As this data set has correlated rows (groups are subjects), the goal of this pro
 
 # Methods and Analysis
 ### GEE (Generalized Estimating Equations) Analysis
-First, a generalized estimating equations approach will be implemented. In order to select variables to include in the model and the working correlation structure, I will compute a $QIC_u$/$QIC$ for each model and select the one that minimizes the $QIC_u$/$QIC$. $QIC$ will be used to select the correlation structure, and $QIC_u$ will be used to select variables to be included in the model. 
+First, a generalized estimating equations approach will be implemented. 
+In order to select variables to include in the model and the working correlation structure, I will compute a $QIC_u$/$QIC$ for each model and select the one that minimizes the $QIC_u$/$QIC$. 
+$QIC$ will be used to select the correlation structure, and $QIC_u$ will be used to select variables to be included in the model. 
 
 ```{r, echo = F, warning = F, message = F}
 dementia = read.csv("oasis_longitudinal.csv", header = T)
@@ -64,8 +67,10 @@ QIC = function(mod, mod.indep, outcome, u = F){
 ```
 
 *(Model 1): all predictors and exchangeable correlation structure*   
-The first model contains all predictors and uses an exchangeable correlation structure. This correlation structure assumes that all correlations for between observations within a subject are the same.   
-P-values computed using the Wald test show that all variables except for eTIV and groupChange are significant. The $QIC$ for this model is 431.2214 and the $QIC_u$ is 420.4153.
+The first model contains all predictors and uses an exchangeable correlation structure. 
+This correlation structure assumes that all correlations for between observations within a subject are the same.   
+P-values computed using the Wald test show that all variables except for eTIV and groupChange are significant. 
+The $QIC$ for this model is 431.2214 and the $QIC_u$ is 420.4153.
 ```{r, warning = F, message = F, results = 'hide'}
 library(gee)
 mod1 = gee(Class~M.F+Age+EDUC+eTIV+nWBV+groupChange,
@@ -90,7 +95,8 @@ QIC(mod1, mod.indep1, dementia$Class)
 QIC(mod1, mod.indep1, dementia$Class, u = T)
 ```
 *(Model 2): all predictors except eTIV and exchangeable correlation structure*  
-Variable selection: The second model removes eTIV from the predictors to test whether or not eTIV should stay in the model. The $QIC_u$ for this model is 426.3369, which is higher than the $QIC_u$ from model 1. Thus, eTIV will remain in the model. 
+Variable selection: The second model removes eTIV from the predictors to test whether or not eTIV should stay in the model. 
+The $QIC_u$ for this model is 426.3369, which is higher than the $QIC_u$ from model 1. Thus, eTIV will remain in the model. 
 ```{r, warning = F, message = F, results = 'hide'}
 mod2 = gee(Class~M.F+Age+EDUC+nWBV+groupChange,
           id = Subject.ID,
@@ -107,7 +113,9 @@ mod.indep2 = gee(Class~M.F+Age+EDUC+nWBV+groupChange,
 QIC(mod2, mod.indep2, dementia$Class, u = T)
 ```
 *(Model 3): all predictors except groupChange and exchangeable correlation structure*  
-Variable selection: The third model removes groupChange from the predictors to test whether or not it should stay in the model. The $QIC_u$ for this model is 420.9161, which is slightly higher than the $QIC_u$ from model 1. Thus, groupChange will remain in the model. 
+Variable selection: The third model removes groupChange from the predictors to test whether or not it should stay in the model. 
+The $QIC_u$ for this model is 420.9161, which is slightly higher than the $QIC_u$ from model 1. 
+Thus, groupChange will remain in the model. 
 ```{r, warning = F, message = F,results = 'hide'}
 mod3 = gee(Class~M.F+Age+EDUC+eTIV+nWBV,
           id = Subject.ID,
@@ -125,7 +133,9 @@ QIC(mod3, mod.indep3, dementia$Class, u = T)
 ```
 
 *(Model 4): all predictors and autoregressive (AR1) correlation structure*   
-Now that I am done with variable selection, I change the correlation structure to investigate if there is another structure that fits better than the exchangeable. Here, I try the autoregressive correlation structure, which assumes that the correlation between observations within a subject decrease over time, or over the visits. The QIC for the autoregressive model is 430.8454, which is slightly lower than what was obtained with the exchangeable.
+Now that I am done with variable selection, I change the correlation structure to investigate if there is another structure that fits better than the exchangeable. 
+Here, I try the autoregressive correlation structure, which assumes that the correlation between observations within a subject decrease over time, or over the visits. 
+The QIC for the autoregressive model is 430.8454, which is slightly lower than what was obtained with the exchangeable.
 ```{r, warning = F, message = F,results = 'hide'}
 mod4 = gee(Class~M.F+Age+EDUC+eTIV+nWBV+groupChange,
           id = Subject.ID,
@@ -182,7 +192,8 @@ varests = vc$vcov
 
 In order to determine whether the random intercept only or the random trend and intercept model is appropriate, I compare the deviances of the two random effects models created above.   
 ($H_0:$ random intercept model is adequate)  
-The p-value is 0.1989045, so I fail to reject the null hypothesis and conclude that the intercept only model is adequate. Thus, groupChange will be treated as a fixed effect, meaning we are only interested in the specific levels of groupChange used in this study.
+The p-value is 0.1989045, so I fail to reject the null hypothesis and conclude that the intercept only model is adequate. 
+Thus, groupChange will be treated as a fixed effect, meaning we are only interested in the specific levels of groupChange used in this study.
 ```{r, include = F}
 getME(mod.int, "devcomp")$cmp['dev']
 getME(mod.trend.int, "devcomp")$cmp['dev']
@@ -195,8 +206,10 @@ pchisq(267.8373-266.1869, 9-8, lower = F)
 
 # Conclusion & Discussion
 There are both pros and cons to using the GEE approach and the random effects modeling approach for this data set. 
-First, the challenging part of the GEE approach is selecting a correlation structure for the correlations within the clusters, as we cannot be too certain which structure is most appropriate for this study. However, an advantage is that the robust parameter estimtes and standard errors of the GEE keeps choosing an incorrect correlation structure from being detrimental. 
-Further, it is said that the GEE approach is most appropriate for describing the effects of features that are constant within clusters, whereas the random effects approach is most appropriate for describing the effects of features that are repeatedly measured on the same subject. This data set contains both types of features. For example, covariates such as years of education and gender are constant within each subject, whereas the anatonomic information obtained from MRIs are repeatedly measured at each visit per subject. 
+First, the challenging part of the GEE approach is selecting a correlation structure for the correlations within the clusters, as we cannot be too certain which structure is most appropriate for this study. 
+However, an advantage is that the robust parameter estimtes and standard errors of the GEE keeps choosing an incorrect correlation structure from being detrimental. 
+Further, it is said that the GEE approach is most appropriate for describing the effects of features that are constant within clusters, whereas the random effects approach is most appropriate for describing the effects of features that are repeatedly measured on the same subject. 
+This data set contains both types of features. For example, covariates such as years of education and gender are constant within each subject, whereas the anatonomic information obtained from MRIs are repeatedly measured at each visit per subject. 
 However, considering that this is a longitudinal study and that a patient's development of dementia is monitored through tests done on multiple visits, the latter type of features is more distinctly important for the nature of this study. Thus, a random effects approach may be more appropriate.
 
 # Appendix
